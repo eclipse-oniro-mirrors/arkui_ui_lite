@@ -121,7 +121,7 @@ bool Image::SetStandardSrc(const char* src)
         return false;
     }
 
-#if ENABLE_JPEG || ENABLE_PNG
+#if (ENABLE_JPEG || ENABLE_PNG) && (!CACHE_JPEG_AND_PNG)
     ImageType imageType = CheckImgType(src);
 #if ENABLE_PNG
     if (imageType == IMG_PNG) {
@@ -268,7 +268,7 @@ bool Image::PreParse(const char *src)
     }
     path_ = path;
     bool isSucess = true;
-#if ENABLE_JPEG || ENABLE_PNG
+#if (ENABLE_JPEG || ENABLE_PNG) && (!CACHE_JPEG_AND_PNG)
     ImageType imageType = CheckImgType(src);
     if (imageType == IMG_PNG) {
 #if ENABLE_PNG
@@ -303,7 +303,7 @@ void Image::DrawImage(BufferInfo& gfxDstBuffer,
     }
 }
 
-#if ENABLE_PNG
+#if ENABLE_PNG && (!CACHE_JPEG_AND_PNG)
 static inline void FreePngBytep(png_bytep** rowPointer, uint16_t size)
 {
     png_bytep* tmpRowPointer = *rowPointer;
@@ -454,7 +454,7 @@ bool Image::SetPNGSrc(const char* src)
 }
 #endif
 
-#if ENABLE_JPEG
+#if ENABLE_JPEG && (!CACHE_JPEG_AND_PNG)
 bool Image::SetJPEGSrc(const char* src)
 {
     struct jpeg_decompress_struct cinfo;
