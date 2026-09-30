@@ -14,6 +14,7 @@
  */
 
 #include "font/ui_font_vector.h"
+#include <freetype/ftadvanc.h>
 #include <freetype/ftbitmap.h>
 #include <freetype/ftoutln.h>
 #include <freetype/internal/ftobjs.h>
@@ -679,6 +680,46 @@ int8_t UIFontVector::GetGlyphNode(uint32_t unicode, GlyphNode& glyphNode, uint16
     }
 
     return RET_VALUE_OK;
+}
+
+int16_t UIFontVector::GetAdvance(uint32_t unicode, uint16_t& fontId, uint8_t fontSize)
+{
+    if ((fontId >= FONT_ID_MAX) || (fontSize == 0) || !freeTypeInited_) {
+        return INVALID_RET_VALUE;
+    }
+    FT_Face face = ftFaces_[fontId];
+    if (face == nullptr) {
+        return INVALID_RET_VALUE;
+    }
+    // Check glyph cache first; hit means advance from a previously rendered bitmap
+    uint16_t fontKey = GetKey(fontId, fontSize);
+    GlyphCacheNode* cacheNode = UIFontCacheManager::GetInstance()->GetNodeFromCache(
+        unicode, fontKey, GlyphCacheType::CACHE_TYPE_NONE);
+    if (cacheNode != nullptr) {
+        return static_cast<int16_t>(cacheNode->node.advance);
+    }
+    // Ensure face is set to the target fontSize
+    FaceInfo faceInfo;
+    if (GetFaceInfo(fontId, fontSize, faceInfo) != RET_VALUE_OK) {
+        return INVALID_RET_VALUE;
+    }
+    FT_UInt gindex = FT_Get_Char_Index(face, unicode);
+    if (gindex == 0) {
+        return INVALID_RET_VALUE;  // glyph not found in this font
+    }
+    // FT_Get_Advance + NO_SCALE reads hmtx table directly, no outline loading or bitmap rendering
+    // NO_SCALE implies NO_HINTING + NO_BITMAP, no need for FAST_ONLY
+    FT_Fixed advFixed = 0;
+    if (FT_Get_Advance(face, gindex, FT_LOAD_NO_SCALE, &advFixed) != 0 || advFixed < 0) {
+        return INVALID_RET_VALUE;
+    }
+    // NO_SCALE returns font units; convert to pixels: adv * fontSize / units_per_EM
+    FT_Short upem = face->units_per_EM;
+    if (upem == 0) {
+        return INVALID_RET_VALUE;
+    }
+    int16_t advPx = static_cast<int16_t>((static_cast<int32_t>(advFixed) * fontSize + upem / 2) / upem);
+    return advPx;
 }
 
 uint8_t* UIFontVector::GetBitmap(uint32_t unicode, GlyphNode& glyphNode, uint16_t fontId, uint8_t fontSize)

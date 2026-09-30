@@ -116,6 +116,16 @@ public:
     int8_t GetGlyphNode(uint32_t unicode, GlyphNode& glyphNode, uint16_t fontId, uint8_t fontSize);
 
     /**
+     * @brief Get advance without rendering bitmap, with fallback chain.
+     *        Does not support shaping (shapingId). See BaseFont::GetAdvance for details.
+     * @param unicode code point
+     * @param fontId [in,out] input: preferred fontId; output: actual fontId on success
+     * @param fontSize font size in pixels
+     * @return advance in pixels, or -1 if not found
+     */
+    int16_t GetAdvance(uint32_t unicode, uint16_t& fontId, uint8_t fontSize);
+
+    /**
      * @brief Indicates whether the current font library is a vector font library.
      * @return uint8_t: 0 BitmapFont  1 VectorFont
      */
