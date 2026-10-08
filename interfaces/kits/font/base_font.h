@@ -97,6 +97,30 @@ public:
      * @return int8_t
      */
     virtual int8_t GetGlyphNode(uint32_t unicode, GlyphNode& glyphNode, uint16_t fontId, uint8_t fontSize) = 0;
+
+    /**
+     * @brief Get glyph advance without rendering bitmap (fast path for batch measurement).
+     *        Currently only supported by vector fonts (UIFontVector). Bitmap fonts use the
+     *        default implementation which returns -1; use GetWidth for bitmap fonts.
+     *        Unlike GetWidth, this method does not support shaping (shapingId). It reads
+     *        the advance directly from the font metrics table (hmtx for TrueType), so
+     *        complex scripts that require shaping (Arabic, Indic, etc.) will get the
+     *        nominal advance, which may differ from the shaped advance.
+     *        For vector fonts, FT_LOAD_NO_SCALE (no hinting) is used, so the returned
+     *        advance may differ from the rendering path by 0~1px.
+     * @param unicode code point
+     * @param fontId font id (updated to actual font on fallback success)
+     * @param fontSize font size in pixels
+     * @return advance in pixels, or -1 if not found
+     */
+    virtual int16_t GetAdvance(uint32_t unicode, uint16_t& fontId, uint8_t fontSize)
+    {
+        (void)unicode;
+        (void)fontId;
+        (void)fontSize;
+        return -1;
+    }
+
     virtual uint8_t GetFontWeight(uint16_t fontId) = 0;
 
     virtual int8_t SetCurrentLangId(uint8_t langId)

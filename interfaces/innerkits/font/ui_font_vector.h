@@ -39,6 +39,7 @@ public:
     uint8_t* GetBitmap(uint32_t unicode, GlyphNode& glyphNode, uint16_t fontId, uint8_t fontSize) override;
     int8_t GetFontHeader(FontHeader& fontHeader, uint16_t fontId, uint8_t fontSize) override;
     int8_t GetGlyphNode(uint32_t unicode, GlyphNode& glyphNode, uint16_t fontId, uint8_t fontSize) override;
+    int16_t GetAdvance(uint32_t unicode, uint16_t& fontId, uint8_t fontSize) override;
     uint8_t GetFontWeight(uint16_t fontId) override;
     uint16_t
         GetShapingFontId(char* text, uint8_t& ttfId, uint32_t& script, uint16_t fontId, uint8_t size) const override;
