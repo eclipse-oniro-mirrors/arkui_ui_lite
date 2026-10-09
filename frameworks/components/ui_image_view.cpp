@@ -447,8 +447,7 @@ void UIImageView::OnDraw(BufferInfo& gfxDstBuffer, const Rect& invalidatedArea)
                 ImageInfo imgInfo;
                 if (srcType == IMG_SRC_FILE) {
                     CacheEntry entry;
-                    RetCode ret = CacheManager::GetInstance().Open(GetPath(), *style_, entry);
-                    if (ret != RetCode::OK) {
+                    if (CacheManager::GetInstance().Open(GetPath(), *style_, entry) != RetCode::OK) {
                         return;
                     }
                     imgInfo = entry.GetImageInfo();
