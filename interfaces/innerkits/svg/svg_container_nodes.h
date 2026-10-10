@@ -98,6 +98,8 @@ protected:
 
 class SvgRootNode : public SvgContainerNode {
 public:
+    SvgRootNode();
+
     bool SetAttribute(const char* name, const char* value) override;
 
     void SyncViewport(int16_t fallbackW, int16_t fallbackH);
