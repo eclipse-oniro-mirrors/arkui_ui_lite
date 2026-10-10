@@ -341,6 +341,15 @@ void SvgContainerNode::ApplyChildrenBounds(int16_t minX, int16_t minY, int16_t m
 
 // ---------- SvgRootNode ----------
 
+SvgRootNode::SvgRootNode()
+{
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+    // SVG viewport clips its content by default, matching HTML <svg>'s
+    // overflow: hidden. Without this, oversized strokes paint outside the box.
+    SetOverflow(OVERFLOW_HIDDEN);
+#endif
+}
+
 bool SvgRootNode::SetAttribute(const char* name, const char* value)
 {
     if (name == nullptr || value == nullptr) {
