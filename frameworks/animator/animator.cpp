@@ -35,11 +35,31 @@ void Animator::Start()
 void Animator::Stop()
 {
     SetState(STOP);
+#if GRAPHIC_ENABLE_BUTTON_FLAG
+    // remove from the manager before the OnStop callback,
+    // so that the animator can be restarted in OnStop without being removed again
+    AnimatorManager::GetInstance()->Remove(this);
+    if (callback_ != nullptr) {
+        callback_->OnStop(*view_);
+    }
+#else
     if (callback_ != nullptr) {
         callback_->OnStop(*view_);
     }
     AnimatorManager::GetInstance()->Remove(this);
+#endif
 }
+
+#if defined(GRAPHIC_ENABLE_ELEMENT_TRANSITION_FLAG) && GRAPHIC_ENABLE_ELEMENT_TRANSITION_FLAG
+void Animator::Cancel()
+{
+    SetState(STOP);
+    if (callback_ != nullptr && view_ != nullptr) {
+        callback_->OnCancel(*view_);
+    }
+    AnimatorManager::GetInstance()->Remove(this);
+}
+#endif // GRAPHIC_ENABLE_ELEMENT_TRANSITION_FLAG
 
 void Animator::Pause()
 {

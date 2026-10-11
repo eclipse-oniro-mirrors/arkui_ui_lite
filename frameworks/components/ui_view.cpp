@@ -24,10 +24,31 @@
 #include "engines/gfx/gfx_engine_manager.h"
 #include "gfx_utils/graphic_log.h"
 #include "gfx_utils/mem_api.h"
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+#include "layout/layout.h"
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
 #include "securec.h"
 #include "themes/theme_manager.h"
+#if defined(GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG) && GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
+#include "gfx_utils/gradient_info.h"
+#include "components/linear_gradient_builder.h"
+#include "draw/draw_canvas.h"
+#endif
 
 namespace OHOS {
+
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+namespace {
+constexpr uint8_t MARGIN_LEFT_AUTO_FLAG = 0x01;
+constexpr uint8_t FLEX_LEFT_SET_FLAG = 0x01;
+constexpr uint8_t FLEX_RIGHT_SET_FLAG = 0x02;
+constexpr uint8_t FLEX_TOP_SET_FLAG = 0x04;
+constexpr uint8_t FLEX_BOTTOM_SET_FLAG = 0x08;
+constexpr int16_t FLEX_VALUE_UNSET = -1;    // Sentinel for unset flex sizes and offsets.
+constexpr float FLEX_PERCENT_UNSET = -1.0f; // Sentinel for unset flex percentage offsets.
+} // namespace
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
+
 UIView::UIView()
     : touchable_(false),
       visible_(true),
@@ -40,6 +61,19 @@ UIView::UIView()
 #if ENABLE_FOCUS_MANAGER
       focusable_(false),
 #endif
+#if defined(GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG) && GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
+      gradientInfo_(nullptr),
+#endif
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+      overflow_(OVERFLOW_VISIBLE),
+      alignSelf_(ALIGN_SELF_AUTO),
+      hasExplicitWidth_(false),
+      hasExplicitHeight_(false),
+      originalWidthSaved_(false),
+      originalHeightSaved_(false),
+      originalWidth_(0),
+      originalHeight_(0),
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
       opaScale_(OPA_OPAQUE),
       index_(0),
       zIndex_(0),
@@ -81,6 +115,12 @@ UIView::~UIView()
         style_ = nullptr;
         styleAllocFlag_ = false;
     }
+#if defined(GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG) && GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
+    if (gradientInfo_ != nullptr) {
+        delete gradientInfo_;
+        gradientInfo_ = nullptr;
+    }
+#endif
 }
 
 bool UIView::OnPreDraw(Rect& invalidatedArea) const
@@ -108,6 +148,9 @@ void UIView::OnDraw(BufferInfo& gfxDstBuffer, const Rect& invalidatedArea)
 {
     uint8_t opa = GetMixOpaScale();
     BaseGfxEngine::GetInstance()->DrawRect(gfxDstBuffer, GetOrigRect(), invalidatedArea, *style_, opa);
+#if defined(GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG) && GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
+    DrawGradientBackground(gfxDstBuffer, invalidatedArea);
+#endif // GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
 }
 
 void UIView::OnPostDraw(BufferInfo& gfxDstBuffer, const Rect& invalidatedArea)
@@ -188,6 +231,14 @@ void UIView::SetupThemeStyles()
 
 void UIView::SetStyle(Style& style)
 {
+#if defined(GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG) && GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
+    SwitchStyle(style);
+    GradientInfo* copied = (style.gradientInfo_ != nullptr) ? style.gradientInfo_->DeepCopy() : nullptr;
+    delete gradientInfo_;
+    gradientInfo_ = copied;
+    Invalidate();
+    return;
+#endif
     if (styleAllocFlag_) {
         delete style_;
         styleAllocFlag_ = false;
@@ -467,10 +518,20 @@ void UIView::InvalidateRect(const Rect& invalidatedArea, UIView* view)
             return;
         }
 
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+        bool needClipByParent = (par->GetOverflow() != OVERFLOW_VISIBLE);
+        if (needClipByParent) {
+            isIntersect = trunc.Intersect(par->GetPaddingBoxRect(), trunc);
+            if (!isIntersect) {
+                break;
+            }
+        }
+#else
         isIntersect = trunc.Intersect(par->GetContentRect(), trunc);
         if (!isIntersect) {
             break;
         }
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
 
         cur = par;
         par = par->parent_;
@@ -715,7 +776,11 @@ void UIView::GetTargetView(const Point& point, UIView** last)
         return;
     }
     UIView* par = parent_;
+#if GRAPHIC_ENABLE_BUTTON_FLAG
+    Rect rect = GetTouchableRect();
+#else
     Rect rect = GetRect();
+#endif
 
     if (par != nullptr) {
         rect.Intersect(par->GetContentRect(), rect);
@@ -732,7 +797,11 @@ void UIView::GetTargetView(const Point& point, UIView** current, UIView** target
         return;
     }
     UIView* par = parent_;
+#if GRAPHIC_ENABLE_BUTTON_FLAG
+    Rect rect = GetTouchableRect();
+#else
     Rect rect = GetRect();
+#endif
 
     if (par != nullptr) {
         rect.Intersect(par->GetOrigContentRect(), rect);
@@ -794,6 +863,13 @@ Rect UIView::GetRect() const
     }
     return GetOrigRect();
 }
+
+#if GRAPHIC_ENABLE_BUTTON_FLAG
+Rect UIView::GetTouchableRect() const
+{
+    return GetRect();
+}
+#endif
 
 Rect UIView::GetContentRect()
 {
@@ -888,11 +964,21 @@ void UIView::SetTransformMap(const TransformMap& transMap)
 
 void UIView::SetWidth(int16_t width)
 {
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+    if (!flexItemProps_.layoutSizing) {
+        flexItemProps_.autoBasisWidthValid = false;
+    }
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
     if (GetWidth() != width) {
         int16_t newWidth = width + style_->paddingLeft_ + style_->paddingRight_ +
                            (style_->borderWidth_ * 2); /* 2: left and right border */
         rect_.SetWidth(newWidth);
     }
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+    if (HasExplicitWidth()) {
+        SetOriginalWidthSaved(false);
+    }
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
 }
 
 void UIView::SetWidthPercent(float widthPercent)
@@ -914,11 +1000,21 @@ int16_t UIView::GetWidth()
 
 void UIView::SetHeight(int16_t height)
 {
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+    if (!flexItemProps_.layoutSizing) {
+        flexItemProps_.autoBasisHeightValid = false;
+    }
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
     if (GetHeight() != height) {
         int16_t newHeight = height + style_->paddingTop_ + style_->paddingBottom_ +
                             (style_->borderWidth_ * 2); /* 2: top and bottom border */
         rect_.SetHeight(newHeight);
     }
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+    if (HasExplicitHeight()) {
+        SetOriginalHeightSaved(false);
+    }
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
 }
 
 void UIView::SetHeightPercent(float heightPercent)
@@ -1403,4 +1499,536 @@ int16_t UIView::GetZIndex()
 {
     return zIndex_;
 }
+
+#if (GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT == 1)
+Rect UIView::GetPaddingBoxRect() const
+{
+    Rect paddingBoxRect = GetRect();
+    int16_t border = GetStyle(STYLE_BORDER_WIDTH);
+    // SetX/SetY shift the rect while preserving its size, so the right and bottom edges
+    // must be shrunk by resetting the size (same pattern as GetContentRect),
+    // otherwise the right and bottom borders would not be clipped.
+    paddingBoxRect.SetX(paddingBoxRect.GetX() + border);
+    paddingBoxRect.SetY(paddingBoxRect.GetY() + border);
+    int16_t newWidth = paddingBoxRect.GetWidth() - border * 2;  // 2: left and right borders
+    int16_t newHeight = paddingBoxRect.GetHeight() - border * 2; // 2: top and bottom borders
+    paddingBoxRect.SetWidth(newWidth > 0 ? newWidth : 0);
+    paddingBoxRect.SetHeight(newHeight > 0 ? newHeight : 0);
+    return paddingBoxRect;
+}
+
+void UIView::SetOverflow(OverflowMode mode)
+{
+    if (overflow_ == mode) {
+        return;
+    }
+    overflow_ = mode;
+    needRedraw_ = true;
+    if (GetParent() != nullptr) {
+        GetParent()->Invalidate();
+    } else {
+        Invalidate();
+    }
+    // Flush the areas covered by children under the new clip rule so that
+    // newly visible or newly hidden overflowed parts are redrawn.
+    InvalidateChildrenArea();
+}
+
+void UIView::InvalidateChildrenArea()
+{
+    if (!IsViewGroup()) {
+        return;
+    }
+    UIView* child = static_cast<UIViewGroup*>(this)->GetChildrenHead();
+    while (child != nullptr) {
+        child->Invalidate();
+        child = child->GetNextSibling();
+    }
+}
+
+void UIView::SetFlexGrow(uint16_t grow)
+{
+    flexItemProps_.flexGrow = grow;
+}
+
+uint16_t UIView::GetFlexGrow() const
+{
+    return flexItemProps_.flexGrow;
+}
+
+void UIView::BeginFlexLayoutSizing()
+{
+    if (!flexItemProps_.autoBasisWidthValid) {
+        flexItemProps_.autoBasisWidth = GetWidth();
+        flexItemProps_.autoBasisWidthValid = true;
+    }
+    if (!flexItemProps_.autoBasisHeightValid) {
+        flexItemProps_.autoBasisHeight = GetHeight();
+        flexItemProps_.autoBasisHeightValid = true;
+    }
+    flexItemProps_.layoutSizing = true;
+}
+
+void UIView::EndFlexLayoutSizing()
+{
+    flexItemProps_.layoutSizing = false;
+}
+
+int16_t UIView::GetFlexAutoBasis(bool horizontal) const
+{
+    return horizontal ? flexItemProps_.autoBasisWidth : flexItemProps_.autoBasisHeight;
+}
+
+void UIView::SetFlexShrink(uint16_t shrink)
+{
+    flexItemProps_.flexShrink = shrink;
+    flexItemProps_.flexShrinkSet = true;
+}
+
+uint16_t UIView::GetFlexShrink() const
+{
+    return flexItemProps_.flexShrink;
+}
+
+bool UIView::IsFlexShrinkSet() const
+{
+    return flexItemProps_.flexShrinkSet;
+}
+
+void UIView::SetFlexBasis(int16_t basis)
+{
+    flexItemProps_.flexBasis = basis;
+}
+
+int16_t UIView::GetFlexBasis() const
+{
+    return flexItemProps_.flexBasis;
+}
+
+void UIView::SetMinWidth(int16_t width)
+{
+    flexItemProps_.minWidth = width;
+}
+
+int16_t UIView::GetMinWidth() const
+{
+    return flexItemProps_.minWidth;
+}
+
+void UIView::SetMaxWidth(int16_t width)
+{
+    flexItemProps_.maxWidth = width;
+}
+
+int16_t UIView::GetMaxWidth() const
+{
+    return flexItemProps_.maxWidth;
+}
+
+void UIView::SetMinHeight(int16_t height)
+{
+    flexItemProps_.minHeight = height;
+}
+
+int16_t UIView::GetMinHeight() const
+{
+    return flexItemProps_.minHeight;
+}
+
+void UIView::SetMaxHeight(int16_t height)
+{
+    flexItemProps_.maxHeight = height;
+}
+
+int16_t UIView::GetMaxHeight() const
+{
+    return flexItemProps_.maxHeight;
+}
+
+void UIView::SetAspectRatio(uint16_t ratio)
+{
+    flexItemProps_.aspectRatio = ratio;
+}
+
+uint16_t UIView::GetAspectRatio() const
+{
+    return flexItemProps_.aspectRatio;
+}
+
+void UIView::SetPositionType(uint8_t type)
+{
+    flexItemProps_.positionType = type;
+}
+
+uint8_t UIView::GetPositionType() const
+{
+    return flexItemProps_.positionType;
+}
+
+void UIView::SetFlexLeft(int16_t value)
+{
+    flexItemProps_.flexLeft = value;
+    flexItemProps_.flexInsetFlags |= FLEX_LEFT_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags &= ~FLEX_LEFT_SET_FLAG;
+}
+
+void UIView::SetFlexLeftPercent(float percent)
+{
+    flexItemProps_.flexLeftPercent = percent;
+    flexItemProps_.flexInsetFlags |= FLEX_LEFT_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags |= FLEX_LEFT_SET_FLAG;
+}
+
+int16_t UIView::GetFlexLeft() const
+{
+    return flexItemProps_.flexLeft;
+}
+
+float UIView::GetFlexLeftPercent() const
+{
+    return flexItemProps_.flexLeftPercent;
+}
+
+bool UIView::IsFlexLeftPercent() const
+{
+    return (flexItemProps_.flexInsetPercentFlags & FLEX_LEFT_SET_FLAG) != 0;
+}
+
+bool UIView::HasFlexLeft() const
+{
+    return (flexItemProps_.flexInsetFlags & FLEX_LEFT_SET_FLAG) != 0;
+}
+
+void UIView::ClearFlexLeft()
+{
+    flexItemProps_.flexInsetFlags &= ~FLEX_LEFT_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags &= ~FLEX_LEFT_SET_FLAG;
+    flexItemProps_.flexLeft = FLEX_VALUE_UNSET;
+    flexItemProps_.flexLeftPercent = FLEX_PERCENT_UNSET;
+}
+
+void UIView::SetFlexRight(int16_t value)
+{
+    flexItemProps_.flexRight = value;
+    flexItemProps_.flexInsetFlags |= FLEX_RIGHT_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags &= ~FLEX_RIGHT_SET_FLAG;
+}
+
+void UIView::SetFlexRightPercent(float percent)
+{
+    flexItemProps_.flexRightPercent = percent;
+    flexItemProps_.flexInsetFlags |= FLEX_RIGHT_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags |= FLEX_RIGHT_SET_FLAG;
+}
+
+int16_t UIView::GetFlexRight() const
+{
+    return flexItemProps_.flexRight;
+}
+
+float UIView::GetFlexRightPercent() const
+{
+    return flexItemProps_.flexRightPercent;
+}
+
+bool UIView::IsFlexRightPercent() const
+{
+    return (flexItemProps_.flexInsetPercentFlags & FLEX_RIGHT_SET_FLAG) != 0;
+}
+
+bool UIView::HasFlexRight() const
+{
+    return (flexItemProps_.flexInsetFlags & FLEX_RIGHT_SET_FLAG) != 0;
+}
+
+void UIView::ClearFlexRight()
+{
+    flexItemProps_.flexInsetFlags &= ~FLEX_RIGHT_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags &= ~FLEX_RIGHT_SET_FLAG;
+    flexItemProps_.flexRight = FLEX_VALUE_UNSET;
+    flexItemProps_.flexRightPercent = FLEX_PERCENT_UNSET;
+}
+
+void UIView::SetFlexTop(int16_t value)
+{
+    flexItemProps_.flexTop = value;
+    flexItemProps_.flexInsetFlags |= FLEX_TOP_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags &= ~FLEX_TOP_SET_FLAG;
+}
+
+void UIView::SetFlexTopPercent(float percent)
+{
+    flexItemProps_.flexTopPercent = percent;
+    flexItemProps_.flexInsetFlags |= FLEX_TOP_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags |= FLEX_TOP_SET_FLAG;
+}
+
+int16_t UIView::GetFlexTop() const
+{
+    return flexItemProps_.flexTop;
+}
+
+float UIView::GetFlexTopPercent() const
+{
+    return flexItemProps_.flexTopPercent;
+}
+
+bool UIView::IsFlexTopPercent() const
+{
+    return (flexItemProps_.flexInsetPercentFlags & FLEX_TOP_SET_FLAG) != 0;
+}
+
+bool UIView::HasFlexTop() const
+{
+    return (flexItemProps_.flexInsetFlags & FLEX_TOP_SET_FLAG) != 0;
+}
+
+void UIView::ClearFlexTop()
+{
+    flexItemProps_.flexInsetFlags &= ~FLEX_TOP_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags &= ~FLEX_TOP_SET_FLAG;
+    flexItemProps_.flexTop = FLEX_VALUE_UNSET;
+    flexItemProps_.flexTopPercent = FLEX_PERCENT_UNSET;
+}
+
+void UIView::SetFlexBottom(int16_t value)
+{
+    flexItemProps_.flexBottom = value;
+    flexItemProps_.flexInsetFlags |= FLEX_BOTTOM_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags &= ~FLEX_BOTTOM_SET_FLAG;
+}
+
+void UIView::SetFlexBottomPercent(float percent)
+{
+    flexItemProps_.flexBottomPercent = percent;
+    flexItemProps_.flexInsetFlags |= FLEX_BOTTOM_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags |= FLEX_BOTTOM_SET_FLAG;
+}
+
+int16_t UIView::GetFlexBottom() const
+{
+    return flexItemProps_.flexBottom;
+}
+
+float UIView::GetFlexBottomPercent() const
+{
+    return flexItemProps_.flexBottomPercent;
+}
+
+bool UIView::IsFlexBottomPercent() const
+{
+    return (flexItemProps_.flexInsetPercentFlags & FLEX_BOTTOM_SET_FLAG) != 0;
+}
+
+bool UIView::HasFlexBottom() const
+{
+    return (flexItemProps_.flexInsetFlags & FLEX_BOTTOM_SET_FLAG) != 0;
+}
+
+void UIView::ClearFlexBottom()
+{
+    flexItemProps_.flexInsetFlags &= ~FLEX_BOTTOM_SET_FLAG;
+    flexItemProps_.flexInsetPercentFlags &= ~FLEX_BOTTOM_SET_FLAG;
+    flexItemProps_.flexBottom = FLEX_VALUE_UNSET;
+    flexItemProps_.flexBottomPercent = FLEX_PERCENT_UNSET;
+}
+
+void UIView::SetMarginLeftAuto(bool autoFlag)
+{
+    if (autoFlag) {
+        flexItemProps_.marginAutoFlags |= MARGIN_LEFT_AUTO_FLAG;
+    } else {
+        flexItemProps_.marginAutoFlags &= ~MARGIN_LEFT_AUTO_FLAG;
+    }
+}
+
+bool UIView::IsMarginLeftAuto() const
+{
+    return (flexItemProps_.marginAutoFlags & MARGIN_LEFT_AUTO_FLAG) != 0;
+}
+
+void UIView::SetAlignSelf(uint8_t alignSelf)
+{
+    alignSelf_ = alignSelf;
+}
+
+uint8_t UIView::GetAlignSelf() const
+{
+    return alignSelf_;
+}
+
+void UIView::SetHasExplicitWidth(bool hasExplicitWidth)
+{
+    if (hasExplicitWidth && !hasExplicitWidth_) {
+        SetOriginalWidthSaved(false);
+    }
+    hasExplicitWidth_ = hasExplicitWidth;
+}
+
+bool UIView::HasExplicitWidth() const
+{
+    return hasExplicitWidth_;
+}
+
+void UIView::SetHasExplicitHeight(bool hasExplicitHeight)
+{
+    if (hasExplicitHeight && !hasExplicitHeight_) {
+        SetOriginalHeightSaved(false);
+    }
+    hasExplicitHeight_ = hasExplicitHeight;
+}
+
+bool UIView::HasExplicitHeight() const
+{
+    return hasExplicitHeight_;
+}
+
+bool UIView::IsPhasedLayoutNeed() const
+{
+    return (GetFlexGrow() != 0) || IsFlexShrinkSet() || (GetFlexBasis() != FLEX_VALUE_UNSET) ||
+           (GetMinWidth() != FLEX_VALUE_UNSET) || (GetMaxWidth() != FLEX_VALUE_UNSET) ||
+           (GetMinHeight() != FLEX_VALUE_UNSET) || (GetMaxHeight() != FLEX_VALUE_UNSET) ||
+           (GetAspectRatio() != 0) || (GetAlignSelf() != ALIGN_SELF_AUTO) ||
+           IsMarginLeftAuto() || (GetPositionType() == POSITION_ABSOLUTE);
+}
+
+bool UIView::HasFlexItemProperties() const
+{
+    return IsPhasedLayoutNeed();
+}
+#endif // GRAPHIC_ENABLE_FLEX_LAYOUT_ENHANCEMENT
+#if defined(GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG) && GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
+namespace {
+/** A border is subtracted on both sides of each axis. */
+constexpr int16_t BORDER_SIDES_PER_AXIS = 2;
+
+/**
+ * Rect(left, top, right, bottom) takes inclusive boundary coordinates, so the
+ * right/bottom edge of a size-based box is (origin + size - 1).
+ */
+constexpr int16_t RECT_INCLUSIVE_EDGE_ADJUST = 1;
+
+/** Index of the color stop used when the gradient fill has to be given up. */
+constexpr uint8_t GRADIENT_FALLBACK_STOP_INDEX = 0;
+} // namespace
+
+void UIView::SwitchStyle(Style& style)
+{
+    if (styleAllocFlag_) {
+        delete style_;
+        styleAllocFlag_ = false;
+    }
+    style_ = &style;
+}
+
+void UIView::SetGradientInfo(GradientInfo* info)
+{
+    /*
+     * The caller transfers ownership of info to this view. The view will delete
+     * an invalid payload immediately, and will delete the owned payload when it
+     * is replaced or the view is destroyed.
+     */
+    GradientInfo* payload = info;
+    if (payload != nullptr &&
+        (!payload->isValid || payload->colorCount < GRADIENT_MIN_COLOR_STOP_COUNT)) {
+        delete payload;
+        payload = nullptr;
+    }
+    delete gradientInfo_;
+    gradientInfo_ = payload;
+    Invalidate();
+}
+
+bool UIView::HasRenderableGradient() const
+{
+    return (gradientInfo_ != nullptr) && gradientInfo_->isValid &&
+           (gradientInfo_->colorCount >= GRADIENT_MIN_COLOR_STOP_COUNT);
+}
+
+void UIView::DrawLinearGradient(BufferInfo& gfxDstBuffer, const Rect& invalidatedArea)
+{
+    /*
+     * Guard 1: the payload may have been cleared between the OnDraw() dispatch
+     * and this call, so it is re-checked instead of being assumed valid.
+     */
+    if (!HasRenderableGradient()) {
+        return;
+    }
+    /*
+     * Guard 2: an empty border box means the view has not been laid out yet or
+     * is currently hidden; there is nothing to shade.
+     */
+    Rect rect(GetRect());
+    if (rect.GetWidth() <= 0 || rect.GetHeight() <= 0) {
+        return;
+    }
+    /*
+     * Guard 3: style_ carries the border width and is also reused to build the
+     * fallback fill, so a null style rules the gradient path out entirely.
+     */
+    if (style_ == nullptr) {
+        return;
+    }
+    /* Content box: the border is subtracted on both sides of each axis. */
+    const int16_t borderWidth = style_->borderWidth_;
+    const int16_t contentX = rect.GetX() + borderWidth;
+    const int16_t contentY = rect.GetY() + borderWidth;
+    const int16_t contentWidth = rect.GetWidth() - borderWidth * BORDER_SIDES_PER_AXIS;
+    const int16_t contentHeight = rect.GetHeight() - borderWidth * BORDER_SIDES_PER_AXIS;
+    /* Guard 4: a border thicker than the view leaves no content box. */
+    if (contentWidth <= 0 || contentHeight <= 0) {
+        return;
+    }
+    /*
+     * Rect(left, top, right, bottom) takes inclusive boundary coordinates, not
+     * a size. Passing the width and the height directly would make bottom_ end
+     * up above top_ for any view placed at a non zero origin, and GetHeight()
+     * would then return a negative value.
+     */
+    Rect targetRect(contentX, contentY,
+                    contentX + contentWidth - RECT_INCLUSIVE_EDGE_ADJUST,
+                    contentY + contentHeight - RECT_INCLUSIVE_EDGE_ADJUST);
+
+    auto params = LinearGradientBuilder::Build(gradientInfo_, contentWidth, contentHeight);
+    if (params.valid) {
+        DrawCanvas::RenderGradientFill(gfxDstBuffer, params.vertices, params.paint, targetRect, invalidatedArea);
+        return;
+    }
+    /*
+     * The rasterizer gave up, most often because the clipping region does not
+     * intersect the content box. Painting the first color stop keeps the view
+     * opaque instead of leaving a hole in the background.
+     */
+    Style fallbackStyle = *style_;
+    fallbackStyle.bgColor_ = gradientInfo_->colorStops[GRADIENT_FALLBACK_STOP_INDEX].color;
+    BaseGfxEngine::GetInstance()->DrawRect(gfxDstBuffer, targetRect, invalidatedArea, fallbackStyle, GetMixOpaScale());
+}
+
+void UIView::DoDrawLinearGradient(BufferInfo& gfxDstBuffer, const Rect& invalidatedArea)
+{
+    /*
+     * Re-validate: the payload can be replaced by another thread between the
+     * OnDraw() dispatch and the actual draw in asynchronous rendering setups.
+     */
+    if (!HasRenderableGradient()) {
+        return;
+    }
+    DrawLinearGradient(gfxDstBuffer, invalidatedArea);
+}
+
+bool UIView::DrawGradientBackground(BufferInfo& gfxDstBuffer, const Rect& invalidatedArea)
+{
+    /*
+     * Gradient background path: taken only when this very view owns a usable
+     * payload. Each view holds its own GradientInfo, so no state leaks between
+     * siblings and the plain color path stays the default.
+     */
+    if (HasRenderableGradient()) {
+        DoDrawLinearGradient(gfxDstBuffer, invalidatedArea);
+        return true;
+    }
+    return false;
+}
+#endif // GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
+
 } // namespace OHOS
