@@ -43,5 +43,5 @@ public:
 private:
     ImagePixelFormat GetPixelFormatByColorMode(ColorMode colorMode);
 };
-}
+} // namespace OHOS
 #endif // GRAPHIC_LITE_HI3519_ENGINE_H

@@ -17,6 +17,7 @@
 #define GRAPHIC_LITE_CACHE_MANAGER_H
 
 #include "file_img_decoder.h"
+#include "gfx_utils/style.h"
 
 namespace OHOS {
 class CacheEntry : public HeapBase {
@@ -42,7 +43,7 @@ public:
         return dsc_.imgInfo;
     }
 
-    RetCode ReadLine(const Point& start, int16_t bufSize, uint8_t* buf) const;
+    RetCode ReadLine(const Point& start, int16_t bufSize, uint8_t* buf);
 
     bool InCache() const
     {

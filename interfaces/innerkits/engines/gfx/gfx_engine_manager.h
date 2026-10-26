@@ -69,12 +69,13 @@ struct ArcInfo {
 struct TransformDataInfo {
     ImageHeader header;
     const uint8_t* data;
-#if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
-    const uint8_t* phyAddr;
-#endif
     uint8_t pxSize;
     BlurLevel blurLevel;
     TransformAlgorithm algorithm;
+    // Physical address of the image data, nullptr when not available. Kept
+    // last and outside conditional compilation so that the struct layout and
+    // aggregate initializations stay stable across build configurations.
+    const uint8_t* phyAddr;
 };
 
 struct LetterDataInfo {

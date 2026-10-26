@@ -14,18 +14,15 @@
  */
 
 #include "imgdecode/cache_manager.h"
-#include "gfx_utils/graphic_log.h"
-#include "hal_tick.h"
-#include "securec.h"
 
-#include "imgdecode/cache_manager.h"
 #include "gfx_utils/graphic_log.h"
-#include "hal_tick.h"
-#include "securec.h"
 
 #include "common/image.h"
-#include "jpeg_img_decoder.h"
-#include "png_img_decoder.h"
+#include "draw/draw_utils.h"
+#include "hal_tick.h"
+#include "imgdecode/jpeg_img_decoder.h"
+#include "imgdecode/png_img_decoder.h"
+#include "securec.h"
 
 namespace OHOS {
 const uint8_t* CacheEntry::GetImgData() const
@@ -33,11 +30,11 @@ const uint8_t* CacheEntry::GetImgData() const
     return dsc_.imgInfo.data;
 }
 
-RetCode CacheEntry::ReadLine(const Point& start, int16_t len, uint8_t* buf) const
+RetCode CacheEntry::ReadLine(const Point& start, int16_t len, uint8_t* buf)
 {
     RetCode ret;
     if (dsc_.decoder != nullptr) {
-        ret = dsc_.decoder->ReadLine(const_cast<FileImgDecoder::ImgResDsc&>(dsc_), start, len, buf);
+        ret = dsc_.decoder->ReadLine(dsc_, start, len, buf);
     } else {
         ret = RetCode::FAIL;
     }
@@ -52,6 +49,7 @@ void CacheEntry::Clear()
     }
 
     dsc_.decoder = nullptr;
+    dsc_.session = nullptr;
     ClearSrc();
     dsc_.imgInfo.data = nullptr;
     dsc_.fd = -1;
@@ -290,11 +288,16 @@ RetCode CacheManager::TryDecode(const char* path, const Style& style, CacheEntry
     FileImgDecoder* decoder = &(FileImgDecoder::GetInstance());
 
     Image::ImageType type = Image::CheckImgType(path);
+#if defined(ENABLE_PNG) && ENABLE_PNG
     if (type == Image::IMG_PNG) {
         decoder = &(PngImgDecoder::GetInstance());
-    } else if (type == Image::IMG_JPEG) {
+    }
+#endif
+#if defined(ENABLE_JPEG) && ENABLE_JPEG
+    if (type == Image::IMG_JPEG) {
         decoder = &(JpegImgDecoder::GetInstance());
     }
+#endif
 
     if (decoder == nullptr) {
         Clear(entry);

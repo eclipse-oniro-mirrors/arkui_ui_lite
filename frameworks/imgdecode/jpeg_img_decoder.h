@@ -16,9 +16,14 @@
 #ifndef GRAPHIC_LITE_JPEG_IMG_DECODER_H
 #define GRAPHIC_LITE_JPEG_IMG_DECODER_H
 
+#include "graphic_config.h"
+
+#if defined(ENABLE_JPEG) && ENABLE_JPEG
+
+#include <cstdio>
+#include <setjmp.h>
+
 #include "file_img_decoder.h"
-#include "draw/draw_image.h"
-#include "draw/draw_utils.h"
 #include "jpeglib.h"
 
 namespace OHOS {
@@ -44,20 +49,37 @@ public:
     }
 
 private:
-    FILE* fp_ {nullptr};
-    struct jpeg_decompress_struct cinfo_ {0};
-    struct jpeg_error_mgr jerr_ {0};
-    JpegImgDecoder() {};
-    ~JpegImgDecoder() override {};
+    // Error handler replacing the default one, which would exit() the process.
+    struct JpegErrorMgr {
+        struct jpeg_error_mgr pub;
+        jmp_buf setjmpBuffer;
+    };
 
-    RetCode CreateDecoder(void);
+    // Per-image decoding session, kept in ImgResDsc::session so that the
+    // singleton decoder never holds cross-image state.
+    struct JpegSession {
+        FILE* fp;
+        struct jpeg_decompress_struct cinfo;
+        JpegErrorMgr jerr;
+        bool inited;
+    };
 
-    void DestroyDecoder(void);
+    JpegImgDecoder() {}
+    ~JpegImgDecoder() override {}
+
+    static void JpegErrorExit(j_common_ptr cinfo);
+
+    RetCode CreateDecoder(ImgResDsc& dsc);
+
+    void DestroyDecoder(ImgResDsc& dsc);
 
     JpegImgDecoder(const JpegImgDecoder&) = delete;
     JpegImgDecoder& operator=(const JpegImgDecoder&) = delete;
     JpegImgDecoder(JpegImgDecoder&&) = delete;
     JpegImgDecoder& operator=(JpegImgDecoder&&) = delete;
 };
-}
+} // namespace OHOS
+
+#endif // ENABLE_JPEG
+
 #endif

@@ -14,17 +14,13 @@
  */
 
 #include "engines/gfx/hi3519/hi3519_engine.h"
-#include "draw/draw_utils.h"
+#include "gfx_utils/graphic_log.h"
 #include "hals/gfx_engines.h"
 #include "lite_wm_type.h"
 
 namespace OHOS {
-const int16_t HARDWARE_ACC_SIZE_LIMIT = 50 * 50; // 50: Minimum supported pixel width and height
-
-inline uint32_t AlignByte(uint32_t byte, uint32_t align)
-{
-    return ((byte) + (align) - 1) & (~((align) - 1));
-}
+const int16_t HARDWARE_ACC_WIDTH_LIMIT = 50;  // 50: Minimum width for hardware acceleration, in pixels
+const int16_t HARDWARE_ACC_HEIGHT_LIMIT = 50; // 50: Minimum height for hardware acceleration, in pixels
 
 __attribute__((constructor)) void RegisterHi3519GfxEngine()
 {
@@ -88,10 +84,10 @@ void Hi3519GfxEngine::Blit(BufferInfo& dst, const Point& dstPos, const BufferInf
     dstData.stride = dst.stride;
     dstData.pixelFormat = GetPixelFormatByColorMode(dst.mode);
     Rect dstRect;
-    dstRect.SetX(subRect.GetX());
-    dstRect.SetY(subRect.GetY());
-    dstRect.SetWidth(src.rect.GetWidth());
-    dstRect.SetHeight(src.rect.GetHeight());
+    dstRect.SetX(dstPos.x);
+    dstRect.SetY(dstPos.y);
+    dstRect.SetWidth(subRect.GetWidth());
+    dstRect.SetHeight(subRect.GetHeight());
     if (GfxEngines::GetInstance()->GfxBlitWithOpt(srcData, src.rect, dstData, dstRect, blendOption.opacity)) {
         return;
     }
@@ -105,7 +101,8 @@ void Hi3519GfxEngine::Fill(BufferInfo& dst,
                            const OpacityType opacity)
 {
 #if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
-    if (fillArea.GetSize() >= HARDWARE_ACC_SIZE_LIMIT) {
+    if ((opacity != OPA_OPAQUE) && (fillArea.GetWidth() >= HARDWARE_ACC_WIDTH_LIMIT) &&
+        (fillArea.GetHeight() >= HARDWARE_ACC_HEIGHT_LIMIT)) {
         LiteSurfaceData data;
         data.phyAddr = static_cast<uint8_t *>(dst.phyAddr);
         data.width = dst.width;
@@ -120,53 +117,81 @@ void Hi3519GfxEngine::Fill(BufferInfo& dst,
     SoftEngine::Fill(dst, fillArea, color, opacity);
 }
 
+#if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
+// Add 0.5 before the int16_t truncation to round scale-derived coordinates explicitly.
+constexpr double ROUND_HALF = 0.5;
+
+// Run the transform blit through the TDE hardware engine. Returns false when the
+// request cannot be served by hardware, in which case the caller falls back to the
+// software engine.
+static bool BlitTransformByGfx(BufferInfo& dst, const Rect& mask, const Point& position, OpacityType opacity,
+    const TransformMap& transMap, const TransformDataInfo& dataInfo,
+    ImagePixelFormat srcPixelFormat, ImagePixelFormat dstPixelFormat)
+{
+    LiteSurfaceData srcData;
+    srcData.phyAddr = const_cast<uint8_t*>(dataInfo.phyAddr);
+    srcData.width = dataInfo.header.width;
+    srcData.height = dataInfo.header.height;
+    uint32_t rowSize = srcData.width * GetByteSizeByColorMode(dataInfo.header.colorMode);
+    // The decoded data is tightly packed row by row. TDE requires an aligned stride, so fall back to
+    // the software engine when the row size is not 4-byte aligned.
+    if ((rowSize % 4) != 0) { // 4: TDE stride alignment in bytes
+        return false;
+    }
+    srcData.stride = rowSize;
+    srcData.pixelFormat = srcPixelFormat;
+
+    LiteSurfaceData dstData;
+    dstData.phyAddr = (uint8_t *)dst.phyAddr;
+    dstData.width = dst.width;
+    dstData.height = dst.height;
+    dstData.stride = dst.stride;
+    dstData.pixelFormat = dstPixelFormat;
+
+    Rect trans = transMap.GetBoxRect();
+    if ((trans.GetWidth() == 0) || (trans.GetHeight() == 0)) {
+        GRAPHIC_LOGE("transMap rect error, size %u %u\n", trans.GetWidth(), trans.GetHeight());
+        return false;
+    }
+    double xScale = 1.0f * trans.GetWidth() / dataInfo.header.width;
+    double yScale = 1.0f * trans.GetHeight() / dataInfo.header.height;
+    trans.SetX(trans.GetX() + position.x);
+    trans.SetY(trans.GetY() + position.y);
+    Rect dstRect;
+    if (!dstRect.Intersect(trans, mask)) {
+        return false;
+    }
+
+    Rect srcRect;
+    int32_t leftOffset = dstRect.GetLeft() - trans.GetLeft();
+    int32_t topOffset = dstRect.GetTop() - trans.GetTop();
+    srcRect.SetLeft(static_cast<int16_t>(leftOffset / xScale + ROUND_HALF));
+    srcRect.SetTop(static_cast<int16_t>(topOffset / yScale + ROUND_HALF));
+    srcRect.SetWidth(static_cast<int16_t>(dstRect.GetWidth() / xScale + ROUND_HALF));
+    srcRect.SetHeight(static_cast<int16_t>(dstRect.GetHeight() / yScale + ROUND_HALF));
+    // Clip the source rect against the source image bounds to avoid out-of-bound physical memory reads
+    Rect srcBound(0, 0, dataInfo.header.width - 1, dataInfo.header.height - 1);
+    Rect clipped;
+    if (!clipped.Intersect(srcRect, srcBound)) {
+        return false;
+    }
+    return GfxEngines::GetInstance()->GfxBlitWithOpt(srcData, clipped, dstData, dstRect, opacity);
+}
+#endif
+
 void Hi3519GfxEngine::DrawTransform(BufferInfo& dst, const Rect& mask, const Point& position, ColorType color,
     OpacityType opacity, const TransformMap& transMap, const TransformDataInfo& dataInfo)
 {
 #if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
     if ((transMap.GetRotateAngle() == 0) && (dataInfo.phyAddr != nullptr) &&
         (dataInfo.header.width != 0) && (dataInfo.header.height != 0)) {
-        LiteSurfaceData srcData;
-        srcData.phyAddr = const_cast<uint8_t*>(dataInfo.phyAddr);
-        srcData.width = dataInfo.header.width;
-        srcData.height = dataInfo.header.height;
-        uint32_t rowSize = srcData.width * GetByteSizeByColorMode(dataInfo.header.colorMode);
-        srcData.stride = AlignByte(rowSize, 4); // 4:Align Byte
-        srcData.pixelFormat = GetPixelFormatByColorMode(static_cast<ColorMode>(dataInfo.header.colorMode));
-
-        LiteSurfaceData dstData;
-        dstData.phyAddr = (uint8_t *)dst.phyAddr;
-        dstData.width = dst.width;
-        dstData.height = dst.height;
-        dstData.stride = dst.stride;
-        dstData.pixelFormat = GetPixelFormatByColorMode(dst.mode);
-
-        Rect trans = transMap.GetBoxRect();
-        if ((trans.GetWidth() == 0) || (trans.GetHeight() == 0)) {
-            GRAPHIC_LOGE("transMap rect error, size %u %u\n", trans.GetWidth(), trans.GetHeight());
-            return;
-        }
-        double xScale = 1.0f * trans.GetWidth() / dataInfo.header.width;
-        double yScale = 1.0f * trans.GetHeight() / dataInfo.header.height;
-        trans.SetX(trans.GetX() + position.x);
-        trans.SetY(trans.GetY() + position.y);
-        Rect dstRect;
-        if (!dstRect.Intersect(trans, mask)) {
-            return;
-        }
-
-        Rect srcRect;
-        int32_t leftOffset = dstRect.GetLeft() - trans.GetLeft();
-        int32_t topOffset = dstRect.GetTop() - trans.GetTop();
-        srcRect.SetLeft(leftOffset / xScale);
-        srcRect.SetTop(topOffset / yScale);
-        srcRect.SetWidth(dstRect.GetWidth() / xScale);
-        srcRect.SetHeight(dstRect.GetHeight() / yScale);
-        if (GfxEngines::GetInstance()->GfxBlitWithOpt(srcData, srcRect, dstData, dstRect, opacity)) {
+        if (BlitTransformByGfx(dst, mask, position, opacity, transMap, dataInfo,
+            GetPixelFormatByColorMode(static_cast<ColorMode>(dataInfo.header.colorMode)),
+            GetPixelFormatByColorMode(dst.mode))) {
             return;
         }
     }
 #endif
     SoftEngine::DrawTransform(dst, mask, position, color, opacity, transMap, dataInfo);
 }
-}
+} // namespace OHOS

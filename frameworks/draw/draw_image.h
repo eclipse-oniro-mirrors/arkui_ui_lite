@@ -38,10 +38,10 @@ public:
 
 private:
     static void DrawFromCache(BufferInfo& gfxDstBuffer, const Rect& coords, const Rect& mask,
-                              const CacheEntry& entry, OpacityType opa);
+                              CacheEntry& entry, OpacityType opa);
 
     static void DrawFromFile(BufferInfo& gfxDstBuffer, const Rect& coords, const Rect& mask,
-                             const char* path, const CacheEntry& entry, OpacityType opa);
+                             const char* path, CacheEntry& entry, OpacityType opa);
 };
 } // namespace OHOS
 

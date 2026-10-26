@@ -16,9 +16,13 @@
 #ifndef GRAPHIC_LITE_PNG_IMG_DECODER_H
 #define GRAPHIC_LITE_PNG_IMG_DECODER_H
 
+#include "graphic_config.h"
+
+#if defined(ENABLE_PNG) && ENABLE_PNG
+
+#include <cstdio>
+
 #include "file_img_decoder.h"
-#include "draw/draw_image.h"
-#include "draw/draw_utils.h"
 #include "png.h"
 
 namespace OHOS {
@@ -44,21 +48,28 @@ public:
     }
 
 private:
-    FILE* fp_;
-    png_structp png_;
-    png_infop info_;
+    // Per-image decoding session, kept in ImgResDsc::session so that the
+    // singleton decoder never holds cross-image state.
+    struct PngSession {
+        FILE* fp;
+        png_structp png;
+        png_infop info;
+    };
 
-    PngImgDecoder() : fp_(nullptr),  png_(nullptr), info_(nullptr) {};
-    ~PngImgDecoder() override {};
+    PngImgDecoder() {}
+    ~PngImgDecoder() override {}
 
-    RetCode CreateDecoder(void);
-    void DestroyDecoder(void);
+    RetCode CreateDecoder(ImgResDsc& dsc);
+    void DestroyDecoder(ImgResDsc& dsc);
+    RetCode UpdateInfo(ImgResDsc& dsc);
 
     PngImgDecoder(const PngImgDecoder&) = delete;
     PngImgDecoder& operator=(const PngImgDecoder&) = delete;
     PngImgDecoder(PngImgDecoder&&) = delete;
     PngImgDecoder& operator=(PngImgDecoder&&) = delete;
-    void UpdateInfo(void);
 };
-}
+} // namespace OHOS
+
+#endif // ENABLE_PNG
+
 #endif

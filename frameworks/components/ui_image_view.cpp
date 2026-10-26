@@ -469,9 +469,10 @@ void UIImageView::DrawImageWithTransform(BufferInfo& gfxDstBuffer, Rect& trunc, 
     }
     uint8_t pxSize = DrawUtils::GetPxSizeByColorMode(imgInfo.header.colorMode);
 #if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
-    TransformDataInfo imageTranDataInfo = {imgInfo.header, imgInfo.data, imgInfo.phyAddr, pxSize,
+    TransformDataInfo imageTranDataInfo = {imgInfo.header, imgInfo.data, pxSize,
                                            static_cast<BlurLevel>(blurLevel_),
-                                           static_cast<TransformAlgorithm>(algorithm_)};
+                                           static_cast<TransformAlgorithm>(algorithm_),
+                                           imgInfo.phyAddr};
 #else
     TransformDataInfo imageTranDataInfo = {imgInfo.header, imgInfo.data, pxSize,
                                            static_cast<BlurLevel>(blurLevel_),

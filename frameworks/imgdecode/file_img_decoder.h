@@ -16,8 +16,9 @@
 #ifndef GRAPHIC_LITE_FILE_IMG_DECODER_H
 #define GRAPHIC_LITE_FILE_IMG_DECODER_H
 
-#include "draw/draw_image.h"
-#include "draw/draw_utils.h"
+#include "gfx_utils/graphic_types.h"
+#include "gfx_utils/heap_base.h"
+#include "gfx_utils/image_info.h"
 
 namespace OHOS {
 constexpr uint8_t BYTE_TO_BIT_SHIFT = 3;
@@ -43,6 +44,8 @@ public:
         int32_t fd;
         ImageSrcType srcType;
         bool inCache;
+        // Per-image decoding session owned by the concrete decoder.
+        void* session;
     };
 
     virtual RetCode Open(ImgResDsc& dsc);
@@ -68,8 +71,7 @@ private:
             return false;
         }
     }
-    RetCode ReadLineTrueColor(const ImgResDsc& dsc, const Point& start, int16_t len, uint8_t* buf);
-    RetCode ReadFileHeader(ImgResDsc& dsc, int32_t& readCount);
+    RetCode ReadLineTrueColor(ImgResDsc& dsc, const Point& start, int16_t len, uint8_t* buf);
     RetCode GetFileSize(int32_t fd, uint32_t& fileSize);
     RetCode ReadImageData(ImgResDsc& dsc, uint32_t pxCount);
     void HandleReadFailure(ImgResDsc& dsc);

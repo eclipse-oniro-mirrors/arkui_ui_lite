@@ -289,8 +289,8 @@ void DrawLabel::DrawLetterWithRotate(BufferInfo& gfxDstBuffer,
     transMap.Translate(Vector2<float>(posX + node.left, posY + offset - node.top));
     transMap.Rotate(letterInfo.rotateAngle, Vector2<float>(posX, posY));
 #if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
-    TransformDataInfo letterTranDataInfo = {ImageHeader{colorMode, 0, 0, 0, node.cols, node.rows}, fontMap, nullptr,
-        fontWeight, BlurLevel::LEVEL0, TransformAlgorithm::BILINEAR};
+    TransformDataInfo letterTranDataInfo = {ImageHeader{colorMode, 0, 0, 0, node.cols, node.rows}, fontMap,
+        fontWeight, BlurLevel::LEVEL0, TransformAlgorithm::BILINEAR, nullptr};
 #else
     TransformDataInfo letterTranDataInfo = {ImageHeader{colorMode, 0, 0, 0, node.cols, node.rows}, fontMap, fontWeight,
                                             BlurLevel::LEVEL0, TransformAlgorithm::BILINEAR};

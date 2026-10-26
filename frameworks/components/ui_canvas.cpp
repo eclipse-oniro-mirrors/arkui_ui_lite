@@ -1592,8 +1592,9 @@ void UICanvas::BlitMapBuffer(BufferInfo &gfxDstBuffer, BufferInfo& gfxMapBuffer,
         imageInfo.data = addr;
 #if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
         imageInfo.phyAddr = reinterpret_cast<uint8_t *>(gfxMapBuffer.phyAddr);
-        TransformDataInfo imageTranDataInfo = {imageInfo.header, imageInfo.data, imageInfo.phyAddr, pxSize,
-                                               BlurLevel::LEVEL0, TransformAlgorithm::BILINEAR};
+        TransformDataInfo imageTranDataInfo = {imageInfo.header, imageInfo.data, pxSize,
+                                               BlurLevel::LEVEL0, TransformAlgorithm::BILINEAR,
+                                               imageInfo.phyAddr};
 #else
         TransformDataInfo imageTranDataInfo = {imageInfo.header, imageInfo.data, pxSize,
                                                BlurLevel::LEVEL0, TransformAlgorithm::BILINEAR};

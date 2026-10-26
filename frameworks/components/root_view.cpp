@@ -621,7 +621,7 @@ void RootView::BlitMapBuffer(Rect& curViewRect, TransformMap& transMap, const Re
 #if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
         imageInfo.phyAddr = reinterpret_cast<uint8_t *>(dc_.mapBufferInfo->phyAddr);
         TransformDataInfo imageTranDataInfo = {imageInfo.header, imageInfo.data,
-            imageInfo.phyAddr, pxSize, LEVEL0, BILINEAR};
+            pxSize, LEVEL0, BILINEAR, imageInfo.phyAddr};
 #else
         TransformDataInfo imageTranDataInfo = {imageInfo.header, imageInfo.data, pxSize, LEVEL0, BILINEAR};
 #endif
@@ -899,8 +899,11 @@ void RootView::InitMapBufferInfo(BufferInfo* bufferInfo)
     uint32_t bufferSize = dc_.mapBufferInfo->stride * dc_.mapBufferInfo->height;
 #if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
     AllocInfo info;
-    info.expectedSize = bufferSize;
+    info.width = dc_.mapBufferInfo->width;
+    info.height = dc_.mapBufferInfo->height;
     info.usage = HBM_USE_ASSIGN_SIZE | HBM_USE_MEM_MMZ;
+    info.format = PIXEL_FMT_RGBA_8888; // 4 bytes per pixel, matches ARGB8888
+    info.expectedSize = bufferSize;
 
     GrallocBuffer buffer;
     if (!GrallocEngines::GetInstance()->AllocBuffer(info, buffer)) {

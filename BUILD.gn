@@ -319,6 +319,7 @@ if (os_level != "standard") {
         "frameworks/dfx/ui_dump_dom_tree.cpp",
         "frameworks/dfx/ui_screenshot.cpp",
         "frameworks/engines/gfx/hi3516/hi3516_engine.cpp",
+        "frameworks/engines/gfx/hi3519/hi3519_engine.cpp",
         "frameworks/window/window.cpp",
         "frameworks/window/window_impl.cpp",
       ]

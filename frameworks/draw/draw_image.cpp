@@ -58,7 +58,7 @@ void DrawImage::DrawCommon(BufferInfo& gfxDstBuffer, const Rect& coords, const R
 }
 
 void DrawImage::DrawFromCache(BufferInfo& gfxDstBuffer, const Rect& coords, const Rect& mask,
-                              const CacheEntry& entry, OpacityType opa)
+                              CacheEntry& entry, OpacityType opa)
 {
     uint8_t pxBitSize = DrawUtils::GetPxSizeByColorMode(entry.GetImageInfo().header.colorMode);
 #if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
@@ -72,7 +72,7 @@ void DrawImage::DrawFromCache(BufferInfo& gfxDstBuffer, const Rect& coords, cons
 }
 
 void DrawImage::DrawFromFile(BufferInfo& gfxDstBuffer, const Rect& coords, const Rect& mask,
-                             const char* path, const CacheEntry& entry, OpacityType opa)
+                             const char* path, CacheEntry& entry, OpacityType opa)
 {
     Rect valid = coords;
     if (!valid.Intersect(valid, mask)) {
