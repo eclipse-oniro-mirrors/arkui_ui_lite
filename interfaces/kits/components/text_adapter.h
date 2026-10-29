@@ -137,6 +137,26 @@ public:
     }
 
     /**
+     * @brief Sets font ID.
+     *
+     * @param fontId Indicates the font ID. For details, see {@link UITextLanguageFontId}.
+     * @param ratio Indicates the font scale size.
+     * @since 1.0
+     * @version 1.0
+     */
+    void SetFontId(uint16_t fontId, float ratio)
+    {
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+        fontId_ = fontId;
+        if (fontName_ != nullptr) {
+            UIFree(fontName_);
+            fontName_ = nullptr;
+        }
+        scaleRatio_ = ratio;
+#endif
+    }
+
+    /**
      * @brief Obtains font ID.
      *
      * @return Returns the font ID. For details, see {@link UITextLanguageFontId}.
@@ -157,6 +177,19 @@ public:
      * @version 1.0
      */
     void SetFont(const char* name, uint8_t size);
+
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    /**
+     * @brief Sets the font.
+     *
+     * @param name Indicates the pointer to the font name.
+     * @param size Indicates the font size to set.
+     * @param ratio Indicates the font scale size to set.
+     * @since 1.0
+     * @version 1.0
+     */
+    void SetFont(const char* name, uint8_t size, float ratio);
+#endif
 
     /**
      * @brief Obtains the UILabel adapter style.
@@ -279,6 +312,9 @@ private:
     List<const char*> dynamicText_;
     UIView::OnClickListener* clickListener_;
     TextFormatter* formatter_;
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    float scaleRatio_;
+#endif
 };
 } // namespace OHOS
 #endif // GRAPHIC_LITE_TEXT_ADAPTER_H

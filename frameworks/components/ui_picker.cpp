@@ -128,6 +128,10 @@ UIPicker::UIPicker()
     highlightFontId_ = style_->font_;
     highlightColor_ = style_->textColor_;
 
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    scaleRatio_ = Text::GetDefaultScale();
+#endif
+
     list_.SetThrowDrag(true);
     list_.SetStyle(StyleDefault::GetBackgroundTransparentStyle());
 #if ENABLE_ROTATE_INPUT
@@ -252,9 +256,17 @@ void UIPicker::RefreshList()
     textAdapter_->SetHeight(itemsHeight_);
     textAdapter_->SetLineBreakMode(UILabel::LINE_BREAK_CLIP);
     if (backgroundFontName_ == nullptr) {
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+        textAdapter_->SetFontId(backgroundFontId_, scaleRatio_);
+#else
         textAdapter_->SetFontId(backgroundFontId_);
+#endif
     } else {
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+        textAdapter_->SetFont(backgroundFontName_, backgroundFontSize_, scaleRatio_);
+#else
         textAdapter_->SetFont(backgroundFontName_, backgroundFontSize_);
+#endif
     }
     textAdapter_->GetStyle().textColor_ = backgroundColor_;
     textAdapter_->SetDirect(direct_);
@@ -475,5 +487,13 @@ void UIPicker::SetTextFormatter(TextFormatter* formatter)
     InitTextAdapter();
     textAdapter_->SetTextFormatter(formatter);
     Refresh();
+}
+
+bool UIPicker::SetFontSizeScale(float ratio)
+{
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    scaleRatio_ = ratio;
+#endif
+    return true;
 }
 } // namespace OHOS

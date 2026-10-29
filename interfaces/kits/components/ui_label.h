@@ -466,16 +466,6 @@ public:
     uint8_t GetOriginFontSize();
 
     /**
-     * @brief Set the font size scale ratio for this label.
-     *
-     * @param ratio Indicates the scale value.
-     * @return Returns <b>true</b> if the scale ratio set success; returns <b>false</b> otherwise.
-     * @since 1.0
-     * @version 1.0
-     */
-    bool SetFontSizeScale(float ratio);
-
-    /**
      * @brief Obtains the font size scale ratio for this label.
      *
      * @return Returns label's current font size scale ratio.
@@ -494,15 +484,6 @@ public:
     bool HasFontSizeScale() const;
 
     /**
-     * @brief Sets the max show lines count for this label.
-     *
-     * @param count Indicates the max lines count to set.
-     * @since 1.0
-     * @version 1.0
-     */
-    bool SetMaxLines(int32_t count);
-
-    /**
      * @brief Obtain the max show lines count for this label.
      *
      * @return Returns this label's max show lines count.
@@ -511,6 +492,25 @@ public:
      */
     int32_t GetMaxLines() const;
 #endif
+
+    /**
+     * @brief Set the font size scale ratio for this label.
+     *
+     * @param ratio Indicates the scale value.
+     * @return Returns <b>true</b> if the scale ratio set success; returns <b>false</b> otherwise.
+     * @since 1.0
+     * @version 1.0
+     */
+    bool SetFontSizeScale(float ratio);
+
+    /**
+     * @brief Sets the max show lines count for this label.
+     *
+     * @param count Indicates the max lines count to set.
+     * @since 1.0
+     * @version 1.0
+     */
+    bool SetMaxLines(int32_t count);
 
 protected:
     Text* labelText_;

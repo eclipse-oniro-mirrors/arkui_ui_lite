@@ -314,7 +314,6 @@ public:
         return labelButtonText_->GetFontId();
     }
 
-#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
     /**
      * @brief Set the font size scale ratio for this labelbutton.
      *
@@ -325,6 +324,16 @@ public:
      */
     bool SetFontSizeScale(float ratio);
 
+    /**
+     * @brief Sets the max show lines count for this labelbutton.
+     *
+     * @param count Indicates the max lines count to set.
+     * @since 1.0
+     * @version 1.0
+     */
+    bool SetMaxLines(int32_t count);
+
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
     /**
      * @brief Obtains the font size scale ratio for this labelbutton.
      *
@@ -351,15 +360,6 @@ public:
      * @version 1.0
      */
     int16_t GetTextHeight();
-
-    /**
-     * @brief Sets the max show lines count for this labelbutton.
-     *
-     * @param count Indicates the max lines count to set.
-     * @since 1.0
-     * @version 1.0
-     */
-    bool SetMaxLines(int32_t count);
 
     void ReMeasure() override;
 

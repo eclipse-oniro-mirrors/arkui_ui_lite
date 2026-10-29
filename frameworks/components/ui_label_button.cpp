@@ -66,28 +66,6 @@ UILabelButton::~UILabelButton()
 }
 
 #if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
-bool UILabelButton::SetFontSizeScale(float ratio)
-{
-    float realRatio = ratio;
-    if (realRatio > MAX_SCALE_RATIO) {
-        GRAPHIC_LOGW("UILabelButton::SetFontSizeScale ratio over max: %f", ratio);
-        realRatio = MAX_SCALE_RATIO;
-    }
-
-    if (fabs(realRatio - scaleRatio_) < 1e-6f) {
-        return true;
-    }
-    InitLabelButtonText();
-    if (!labelButtonText_->SetFontSizeScale(realRatio)) {
-        return false;
-    }
-
-    scaleRatio_ = realRatio;
-    needRefresh_ = true;
-
-    return true;
-}
-
 float UILabelButton::GetFontSizeScale() const
 {
     return scaleRatio_;
@@ -106,20 +84,6 @@ int16_t UILabelButton::GetTextHeight()
     }
 
     return limitTextHeight_;
-}
-
-bool UILabelButton::SetMaxLines(int32_t count)
-{
-    if (count > MAX_LINE_COUNT) {
-        return false;
-    }
-
-    if (maxLines_ != count) {
-        needRefresh_ = true;
-    }
-    maxLines_ = count;
-
-    return true;
 }
 
 void UILabelButton::ReMeasure()
@@ -166,4 +130,53 @@ void UILabelButton::SetForceRemeasure(bool flag)
     forceRemeasure_ = flag;
 }
 #endif
+
+bool UILabelButton::SetFontSizeScale(float ratio)
+{
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    if (Text::GetSystemFontLevel() == 0) {   /* font not scale when system is standard mode */
+        return true;
+    }
+
+    float realRatio = 0;
+    if (ratio > MAX_SCALE_RATIO) {
+        GRAPHIC_LOGW("UILabelButton::SetFontSizeScale ratio over max: %f", ratio);
+        realRatio = MAX_SCALE_RATIO;
+    } else if (ratio < DEFAULT_SCALE_RATIO) {
+        GRAPHIC_LOGW("UILabelButton::SetFontSizeScale ratio less than min: %f", ratio);
+        realRatio = DEFAULT_SCALE_RATIO;
+    } else {
+        realRatio = ratio;
+    }
+
+    if (fabs(realRatio - scaleRatio_) < 1e-6f) {
+        return true;
+    }
+    InitLabelButtonText();
+    if (!labelButtonText_->SetFontSizeScale(realRatio)) {
+        return false;
+    }
+
+    scaleRatio_ = realRatio;
+    needRefresh_ = true;
+#endif
+    return true;
+}
+
+bool UILabelButton::SetMaxLines(int32_t count)
+{
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    if (count > MAX_LINE_COUNT) {
+        return false;
+    }
+
+    if (maxLines_ != count) {
+        needRefresh_ = true;
+    }
+
+    maxLines_ = count;
+
+#endif
+    return true;
+}
 }  // namespace OHOS
