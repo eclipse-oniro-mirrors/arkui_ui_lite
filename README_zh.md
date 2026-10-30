@@ -8,6 +8,7 @@
     -   [组件说明](#section66002422015)
     -   [使用说明](#section129654513264)
 
+-   [本次改动](#section_changes_zh)
 -   [相关仓](#section1371113476307)
 
 ## 简介<a name="section11660541593"></a>
@@ -107,6 +108,59 @@ foundation/arkui/ui_lite/test/uitest中提供了图形所有组件和功能接�
 
     编译成功后得到可执行程序out/\[product\_name\]/dev\_tools/bin/sample\_ui，在实际环境上运行即可观察对应组件显示效果。
 
+
+## 本次改动<a name="section_changes_zh"></a>
+
+本仓针对 HiSpark AiFly（Hi3403V100）开发板进行功能适配。为便于区分，以下按“新增能力”与“原有功能增强”两部分说明。
+
+### 新增能力
+
+1. 新增 Hi3519 图形引擎
+    -   新增 `frameworks/engines/gfx/hi3519/hi3519_engine.{h,cpp}`，实现 `Hi3519GfxEngine`（继承 `SoftEngine`）。
+    -   `Blit`：支持带透明度混合的硬件加速搬移（`GfxBlitWithOpt`）。
+    -   `Fill`：填充区域不小于 50×50 时走硬件填充（`GfxFillArea`）。
+    -   `DrawTransform`：无旋转且传入有效物理地址时走硬件缩放搬移。
+    -   硬件接口不可用时自动回退到软件绘制（`SoftEngine`）。
+    -   通过构造函数属性自动注册为默认图形引擎。
+
+2. 新增 PNG / JPEG 专用图片解码器
+    -   新增 `frameworks/imgdecode/png_img_decoder.{h,cpp}`：基于 libpng，支持灰度、调色板、16 位、tRNS 等格式自动转换，统一输出 ARGB8888。
+    -   新增 `frameworks/imgdecode/jpeg_img_decoder.{h,cpp}`：基于 libjpeg，逐行解码并统一输出 ARGB8888。
+    -   两者均继承原有 `FileImgDecoder`，实现 `Open`、`Close`、`GetHeader`、`ReadToCache`。
+    -   开启 `CACHE_JPEG_AND_PNG` 后，JPEG/PNG 解码改由上述专用解码器写入缓存，原有内联解码路径关闭。
+
+3. 新增 Gralloc 显存分配接入
+    -   启动流程新增 `GrallocEngines::Init()`（`frameworks/common/graphic_startup.cpp`）。
+    -   根视图映射缓冲区改为通过 `GrallocEngines::AllocBuffer` / `FreeBuffer` 申请与释放（`frameworks/components/root_view.cpp`），申请时使用 `HBM_USE_ASSIGN_SIZE | HBM_USE_MEM_MMZ`。
+
+4. 新增图片绘制物理地址（phyAddr）支持
+    -   `TransformDataInfo` 新增 `phyAddr` 字段（`interfaces/innerkits/engines/gfx/gfx_engine_manager.h`）。
+    -   `DrawUtils::DrawImage` 新增 `imgPhyAddr` 入参（`frameworks/draw/draw_utils.{h,cpp}`），并在 `BufferInfo` 中透传物理地址，供硬件引擎使用。
+
+5. 新增构建配置
+    -   `BUILD.gn`、`ui.gni` 新增 `png_img_decoder.cpp`、`jpeg_img_decoder.cpp`。
+    -   按 `media_interface_upgrade` 选择图形引擎：定义时编译 `hi3519_engine.cpp`，否则编译 `hi3516_engine.cpp`。
+    -   `OAT.xml` 新增 HiSilicon 版权策略（Copyright (c) 2026 HiSilicon）。
+
+### 原有功能增强
+
+1. 原有文件图片解码器（`FileImgDecoder`）增强为可派生基类
+    -   原有功能：提供图片文件的打开、头部读取与缓存读取。
+    -   本次增强：`Open`、`Close`、`GetHeader`、`ReadLine`、`ReadToCache` 改为虚函数，构造/析构调整为 `protected`/虚析构，成员 `inCache_` 更名 `inCache`；`GetHeader` 复用已打开的 fd，`Open` 不再校验颜色模式；`ReadToCache` 拆分出 `ReadFileHeader`、`GetFileSize`、`ReadImageData`、`HandleReadFailure`，并在硬件引擎场景按行读取、按 stride 计算数据大小。
+
+2. 原有图片缓存管理（`CacheManager`）增强
+    -   原有功能：按路径缓存并复用已解码图片，未命中时解码后写入缓存。
+    -   本次增强：`TryDecode` 依据图片类型选择 PNG/JPEG 专用解码器（其余仍走 `FileImgDecoder`）；调整为先 `Open` 后 `GetHeader`；命中缓存时不再重复 `ReadToCache`；缓存读取失败时清理条目并返回错误，同时补充失败日志。
+
+3. 原有图片绘制流程增强
+    -   原有功能：`DrawImage::DrawCommon` 在缓存命中与未命中两种情况下分别绘制。
+    -   本次增强：拆分为私有方法 `DrawFromCache`（命中缓存）与 `DrawFromFile`（逐行读取文件），并在硬件引擎场景向底层绘制接口传递物理地址。
+
+4. 原有组件与接口配套调整
+    -   `UIImageView` 抽出 `DrawImageWithTransform` 私有方法，统一处理变换绘制。
+    -   `RootView::BlitMapBuffer`、`UICanvas::BlitMapBuffer`、`UIAnalogClock::DrawHandImage`、`DrawLabel::DrawLetterWithRotate` 按硬件引擎开关构造带 `phyAddr` 的 `TransformDataInfo`。
+    -   `Image::CheckImgType` 调整为静态方法并开放给 `CacheManager`。
+    -   `BUILD.gn` 修正 `ui_video.cpp` 源文件变量的拼写（`source` → `sources`）。
 
 ## 相关仓<a name="section1371113476307"></a>
 

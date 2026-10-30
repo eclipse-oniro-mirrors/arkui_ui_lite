@@ -21,6 +21,7 @@
 #include "components/ui_image_view.h"
 #include "test_resource_config.h"
 #endif
+#include "draw/draw_utils.h"
 #include "imgdecode/image_load.h"
 #include "test_resource_config.h"
 namespace OHOS {

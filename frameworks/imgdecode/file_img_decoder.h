@@ -16,8 +16,9 @@
 #ifndef GRAPHIC_LITE_FILE_IMG_DECODER_H
 #define GRAPHIC_LITE_FILE_IMG_DECODER_H
 
-#include "draw/draw_image.h"
-#include "draw/draw_utils.h"
+#include "gfx_utils/graphic_types.h"
+#include "gfx_utils/heap_base.h"
+#include "gfx_utils/image_info.h"
 
 namespace OHOS {
 constexpr uint8_t BYTE_TO_BIT_SHIFT = 3;
@@ -42,23 +43,26 @@ public:
         uint32_t timeToOpen;
         int32_t fd;
         ImageSrcType srcType;
-        bool inCache_;
+        bool inCache;
+        // Per-image decoding session owned by the concrete decoder.
+        void* session;
     };
 
-    RetCode Open(ImgResDsc& dsc);
+    virtual RetCode Open(ImgResDsc& dsc);
 
-    RetCode Close(ImgResDsc& dsc);
+    virtual RetCode Close(ImgResDsc& dsc);
 
-    RetCode GetHeader(ImgResDsc& dsc);
+    virtual RetCode GetHeader(ImgResDsc& dsc);
 
-    RetCode ReadLine(ImgResDsc& dsc, const Point& start, int16_t len, uint8_t* buf);
+    virtual RetCode ReadLine(ImgResDsc& dsc, const Point& start, int16_t len, uint8_t* buf);
 
-    RetCode ReadToCache(ImgResDsc& dsc);
+    virtual RetCode ReadToCache(ImgResDsc& dsc);
+
+protected:
+    FileImgDecoder() {}
+    virtual ~FileImgDecoder() {}
 
 private:
-    FileImgDecoder() {}
-    ~FileImgDecoder() {}
-
     bool IsImgValidMode(uint8_t colorMode)
     {
         if ((colorMode == RGB565) || (colorMode == RGB888) || (colorMode == ARGB8888)) {
@@ -68,6 +72,9 @@ private:
         }
     }
     RetCode ReadLineTrueColor(ImgResDsc& dsc, const Point& start, int16_t len, uint8_t* buf);
+    RetCode GetFileSize(int32_t fd, uint32_t& fileSize);
+    RetCode ReadImageData(ImgResDsc& dsc, uint32_t pxCount);
+    void HandleReadFailure(ImgResDsc& dsc);
 
     FileImgDecoder(const FileImgDecoder&) = delete;
     FileImgDecoder& operator=(const FileImgDecoder&) = delete;

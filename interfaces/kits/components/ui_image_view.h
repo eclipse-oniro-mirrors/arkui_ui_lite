@@ -353,6 +353,7 @@ private:
     void AdjustScaleAndTranslate(Vector3<float>& scale, Vector3<int16_t>& translate,
                                  int16_t widgetWidth, int16_t widgetHeight) const;
     void SetCordsTmpRect(BufferInfo& gfxDstBuffer, Rect& viewRect, Rect& trunc, Rect& cordsTmp, OpacityType opa);
+    void DrawImageWithTransform(BufferInfo& gfxDstBuffer, Rect& trunc, uint8_t srcType, OpacityType opa);
 };
 } // namespace OHOS
 #endif // GRAPHIC_LITE_UI_IMAGE_VIEW_H

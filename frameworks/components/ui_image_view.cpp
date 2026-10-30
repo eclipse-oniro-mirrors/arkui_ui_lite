@@ -443,34 +443,47 @@ void UIImageView::OnDraw(BufferInfo& gfxDstBuffer, const Rect& invalidatedArea)
 
             if ((drawTransMap_ == nullptr) || drawTransMap_->IsInvalid()) {
                 SetCordsTmpRect(gfxDstBuffer, viewRect, trunc, cordsTmp, opa);
-            } else if ((drawTransMap_ != nullptr) && !drawTransMap_->IsInvalid()) {
-                ImageInfo imgInfo;
-                if (srcType == IMG_SRC_FILE) {
-                    CacheEntry entry;
-                    RetCode ret = CacheManager::GetInstance().Open(GetPath(), *style_, entry);
-                    if (ret != RetCode::OK) {
-                        return;
-                    }
-                    imgInfo = entry.GetImageInfo();
-                } else {
-                    imgInfo = *(GetImageInfo());
-                }
-                uint8_t pxSize = DrawUtils::GetPxSizeByColorMode(imgInfo.header.colorMode);
-                TransformDataInfo imageTranDataInfo = {imgInfo.header, imgInfo.data, pxSize,
-                                                       static_cast<BlurLevel>(blurLevel_),
-                                                       static_cast<TransformAlgorithm>(algorithm_)};
-                OpacityType opaScale = DrawUtils::GetMixOpacity(opa, style_->imageOpa_);
-                Matrix4<float> scaleMatrix = drawTransMap_->GetScaleMatrix();
-                int16_t paddingX = style_->paddingLeft_ * scaleMatrix[0][0];
-                int16_t paddingY = style_->paddingTop_ * scaleMatrix[1][1];
-                baseGfxEngine->DrawTransform(gfxDstBuffer, trunc, {paddingX, paddingY}, Color::Black(),
-                                             opaScale, *drawTransMap_, imageTranDataInfo);
+            } else {
+                DrawImageWithTransform(gfxDstBuffer, trunc, srcType, opa);
             }
         }
     }
 #if defined(GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG) && GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
     DrawGradientBackground(gfxDstBuffer, invalidatedArea);
 #endif // GRAPHIC_ENABLE_COMPONENT_GRADIENT_FLAG
+}
+
+void UIImageView::DrawImageWithTransform(BufferInfo& gfxDstBuffer, Rect& trunc, uint8_t srcType, OpacityType opa)
+{
+    BaseGfxEngine* baseGfxEngine = BaseGfxEngine::GetInstance();
+    ImageInfo imgInfo;
+    if (srcType == IMG_SRC_FILE) {
+        CacheEntry entry;
+        RetCode ret = CacheManager::GetInstance().Open(GetPath(), *style_, entry);
+        if (ret != RetCode::OK) {
+            return;
+        }
+        imgInfo = entry.GetImageInfo();
+    } else {
+        imgInfo = *(GetImageInfo());
+    }
+    uint8_t pxSize = DrawUtils::GetPxSizeByColorMode(imgInfo.header.colorMode);
+#if defined(ENABLE_GFX_ENGINES) && ENABLE_GFX_ENGINES
+    TransformDataInfo imageTranDataInfo = {imgInfo.header, imgInfo.data, pxSize,
+                                           static_cast<BlurLevel>(blurLevel_),
+                                           static_cast<TransformAlgorithm>(algorithm_),
+                                           imgInfo.phyAddr};
+#else
+    TransformDataInfo imageTranDataInfo = {imgInfo.header, imgInfo.data, pxSize,
+                                           static_cast<BlurLevel>(blurLevel_),
+                                           static_cast<TransformAlgorithm>(algorithm_)};
+#endif
+    OpacityType opaScale = DrawUtils::GetMixOpacity(opa, style_->imageOpa_);
+    Matrix4<float> scaleMatrix = drawTransMap_->GetScaleMatrix();
+    int16_t paddingX = style_->paddingLeft_ * scaleMatrix[0][0];
+    int16_t paddingY = style_->paddingTop_ * scaleMatrix[1][1];
+    baseGfxEngine->DrawTransform(gfxDstBuffer, trunc, {paddingX, paddingY}, Color::Black(),
+                                 opaScale, *drawTransMap_, imageTranDataInfo);
 }
 
 void UIImageView::SetCordsTmpRect(BufferInfo& gfxDstBuffer, Rect& viewRect, Rect& trunc,

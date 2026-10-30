@@ -17,6 +17,7 @@
 #define GRAPHIC_LITE_CACHE_MANAGER_H
 
 #include "file_img_decoder.h"
+#include "gfx_utils/style.h"
 
 namespace OHOS {
 class CacheEntry : public HeapBase {
@@ -46,7 +47,7 @@ public:
 
     bool InCache() const
     {
-        return dsc_.inCache_;
+        return dsc_.inCache;
     }
 
 private:
