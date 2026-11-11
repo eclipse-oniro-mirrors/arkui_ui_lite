@@ -41,6 +41,9 @@ TextAdapter::TextAdapter()
 {
     style_ = StyleDefault::GetBackgroundTransparentStyle();
     fontId_ = style_.font_;
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    scaleRatio_ = Text::GetDefaultScale();
+#endif
 }
 
 TextAdapter::~TextAdapter()
@@ -56,6 +59,14 @@ void TextAdapter::SetFont(const char* name, uint8_t size)
 {
     Text::SetFont(name, size, fontName_, fontSize_);
 }
+
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+void TextAdapter::SetFont(const char* name, uint8_t size, float ratio)
+{
+    scaleRatio_ = ratio;
+    Text::SetFont(name, size, fontName_, fontSize_);
+}
+#endif
 
 UIView* TextAdapter::GetView(UIView* inView, int16_t index)
 {
@@ -106,6 +117,9 @@ UILabel* TextAdapter::GetDynamicText(UIView* inView, int16_t index)
     UILabel* newView = CreateUILabel(inView);
     if (newView != nullptr) {
         newView->SetText(node->data_);
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+        newView->SetFontSizeScale(scaleRatio_);
+#endif
         if (fontName_ == nullptr) {
             newView->SetFontId(fontId_);
         } else {
@@ -144,6 +158,9 @@ UILabel* TextAdapter::GetIntegerText(UIView* inView, int16_t index)
 
         buf[BUF_LEN - 1] = '\0';
         newView->SetText(buf);
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+        newView->SetFontSizeScale(scaleRatio_);
+#endif
         if (fontName_ == nullptr) {
             newView->SetFontId(fontId_);
         } else {

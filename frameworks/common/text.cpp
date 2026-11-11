@@ -29,6 +29,7 @@ namespace OHOS {
 Text::TextLine Text::textLine_[MAX_LINE_COUNT] = {{0}};
 #if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
 float (*Text::getRatio_)() = nullptr;
+uint8_t (*Text::getSystemFontLevel_)() = nullptr;
 #endif
 
 Text::Text()
@@ -815,5 +816,49 @@ uint16_t Text::GetNextCharacterFullDispalyOffset(const Rect& textRect,
 int16_t Text::GetMetaTextWidth(const Style& style)
 {
     return TypedText::GetTextWidth(text_, GetFontId(), GetFontSize(), strlen(text_), style.letterSpace_);
+}
+
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+void Text::GetSystemFontLevelCallback(uint8_t (*getSystemFontLevel)())
+{
+    getSystemFontLevel_ = getSystemFontLevel;
+}
+
+uint8_t Text::GetSystemFontLevel()
+{
+    if (getSystemFontLevel_ != nullptr) {
+        return getSystemFontLevel_;
+    }
+
+    return 0;
+}
+#endif
+
+bool Text::SetFontSizeScale(float ratio)
+{
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    if (GetSystemFontLevel() == 0) {   /* font not scale when system is standard mode */
+        return true;
+    }
+
+    float realRatio = 0;
+    if (ratio > MAX_SCALE_RATIO) {
+        GRAPHIC_LOGW("Text::SetFontSizeScale ratio over max: %f", ratio);
+        realRatio = MAX_SCALE_RATIO;
+    } else if (ratio < DEFAULT_SCALE_RATIO) {
+        GRAPHIC_LOGW("Text::SetFontSizeScale ratio less than min: %f", ratio);
+        realRatio = DEFAULT_SCALE_RATIO;
+    } else {
+        realRatio = ratio;
+    }
+
+    uint8_t tempSize = CalScaledFontSize(originFontSize_, realRatio);
+    if (spannableString_ != nullptr) {
+        spanableString_->setFontSizeScale(realRatio);
+    }
+    needRefresh_ = (tempSize != fontSize_);
+    fontSize_ = tempSize;
+#endif
+    return true;
 }
 } // namespace OHOS

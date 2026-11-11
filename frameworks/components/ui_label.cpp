@@ -517,29 +517,6 @@ uint8_t UILabel::GetOriginFontSize()
     return labelText_->GetOriginFontSize();
 }
 
-bool UILabel::SetFontSizeScale(float ratio)
-{
-    InitLabelText();
-
-    float realRatio = ratio;
-    if (realRatio > MAX_SCALE_RATIO) {
-        GRAPHIC_LOGW("UILabel::SetFontSizeScale ratio over max: %f", ratio);
-        realRatio = MAX_SCALE_RATIO;
-    }
-
-    if (IsSameScaleRatio(realRatio, scaleRatio_)) {
-        return true;
-    }
-
-    if (!labelText_->SetFontSizeScale(realRatio)) {
-        return false;
-    }
-    scaleRatio_ = realRatio;
-    RefreshLabel();
-
-    return true;
-}
-
 float UILabel::GetFontSizeScale() const
 {
     return scaleRatio_;
@@ -548,17 +525,6 @@ float UILabel::GetFontSizeScale() const
 bool UILabel::HasFontSizeScale() const
 {
     return !IsSameScaleRatio(scaleRatio_, DEFAULT_SCALE_RATIO);
-}
-
-bool UILabel::SetMaxLines(int32_t count)
-{
-    if (count > MAX_LINE_COUNT) {
-        return false;
-    }
-
-    maxLines_ = count;
-
-    return true;
 }
 
 int32_t UILabel::GetMaxLines() const
@@ -607,4 +573,53 @@ bool UILabel::AdjustBreakModeForLimitLines(TextSizeLimitArg &limit, const Style 
     return false;
 }
 #endif
+
+bool UILabel::SetFontSizeScale(float ratio)
+{
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    if (Text::GetSystemFontLevel() == 0) {   /* font not scale when system is standard mode */
+        return true;
+    }
+
+    InitLabelText();
+
+    float realRatio = 0;
+    if (ratio > MAX_SCALE_RATIO) {
+        GRAPHIC_LOGW("UILabel::SetFontSizeScale ratio over max: %f", ratio);
+        realRatio = MAX_SCALE_RATIO;
+    } else if (ratio < DEFAULT_SCALE_RATIO) {
+        GRAPHIC_LOGW("UILabel::SetFontSizeScale ratio less than min: %f", ratio);
+        realRatio = DEFAULT_SCALE_RATIO;
+    } else {
+        realRatio = ratio;
+    }
+
+    //已经设置过相同的缩放系数了
+    if (IsSameScaleRatio(realRatio, scaleRatio_)) {
+        return true;
+    }
+
+    if (!labelText_->SetFontSizeScale(realRatio)) {
+        return false;
+    }
+    scaleRatio_ = realRatio;
+    //设置完缩放比例后，需要刷新label
+    RefreshLabel();
+#endif
+    return true;
+}
+
+bool UILabel::SetMaxLines(int32_t count)
+{
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    if (count > MAX_LINE_COUNT) {
+        return false;
+    }
+
+    maxLines_ = count;
+    //maxLines_和maxHeight互斥，设置一个时，清除另一个
+    maxHeight = COORD_MAX;
+#endif
+    return true;
+}
 } // namespace OHOS

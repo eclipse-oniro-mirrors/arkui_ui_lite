@@ -312,6 +312,16 @@ public:
         return fontSize_;
     }
 
+    /**
+     * @brief Set the font size scale ratio.
+     *
+     * @param ratio Indicates the scale value.
+     * @return Returns <b>true</b> if the scale ratio set success; returns <b>false</b> otherwise.
+     * @since 1.0
+     * @version 1.0
+     */
+    bool SetFontSizeScale(float ratio);
+
 #if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
     /**
      * @brief Obtains the font size before scaled.
@@ -324,16 +334,6 @@ public:
     {
         return originFontSize_;
     }
-
-    /**
-     * @brief Set the font size scale ratio.
-     *
-     * @param ratio Indicates the scale value.
-     * @return Returns <b>true</b> if the scale ratio set success; returns <b>false</b> otherwise.
-     * @since 1.0
-     * @version 1.0
-     */
-    bool SetFontSizeScale(float ratio);
 
     /**
      * @brief Obtains the text base line offset for text height calculate.
@@ -375,6 +375,23 @@ public:
      * @version 1.0
      */
     static float GetDefaultScale();
+
+    /**
+     * @brief Set callback function for get current system scale level.
+     *
+     * @param getSystemFontLevel Indicates the callback function
+     * @since 1.0
+     * @version 1.0
+     */
+    static void GetSystemFontLevelCallback(uint8_t (*getSystemFontLevel)());
+
+    /**
+     * @brief get system font scale level.
+     * @return Return system font scale level.
+     * @since 1.0
+     * @version 1.0
+     */
+    static uint8_t GetSystemFontLevel();
 #endif
 
     /**
@@ -727,6 +744,7 @@ private:
     bool eliminateTrailingSpaces_;
 #if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
     static float (*getRatio_)();
+    static uint8_t (*getSystemFontLevel_)();
 #endif
     static constexpr uint8_t FONT_ID_MAX = 0xFF;
 #if defined(ENABLE_ICU) && ENABLE_ICU

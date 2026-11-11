@@ -523,6 +523,16 @@ public:
     }
 #endif
 
+    /**
+     * @brief Set the font size scale ratio.
+     *
+     * @param ratio Indicates the font scale ratio.
+     * @return Returns <b>true</b> if the scale ratio set success; returns <b>false</b> otherwise.
+     * @since 1.0
+     * @version 1.0
+     */
+    bool SetFontSizeScale(float ratio);
+
 protected:
     bool RefreshSelected(uint16_t index);
     void RefreshList();
@@ -575,6 +585,9 @@ private:
 
     SelectedListener* pickerListener_;
     UITextLanguageDirect direct_;
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    float scaleRatio_;
+#endif
 };
 } // namespace OHOS
 #endif

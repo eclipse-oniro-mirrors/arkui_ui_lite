@@ -32,6 +32,9 @@ UIDigitalClock::UIDigitalClock()
       verticalShow_(false)
 {
     style_ = &(StyleDefault::GetBackgroundTransparentStyle());
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    scaleRatio_ = Text::GetDefaultScale();
+#endif
 }
 
 void UIDigitalClock::InitTimeLabels()
@@ -76,6 +79,9 @@ void UIDigitalClock::SetFontId(uint16_t fontId)
     SetStyle(STYLE_TEXT_FONT, fontId);
     InitTimeLabels();
     for (uint8_t i = 0; i < TIME_ELEMENT_COUNT; i++) {
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+        timeLabels_[i]->SetFontSizeScale(scaleRatio_);
+#endif
         timeLabels_[i]->SetFontId(fontId);
     }
     UpdateClock(false);
@@ -85,6 +91,9 @@ void UIDigitalClock::SetFont(const char* name, uint8_t size)
 {
     InitTimeLabels();
     for (uint8_t i = 0; i < TIME_ELEMENT_COUNT; i++) {
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+        timeLabels_[i]->SetFontSizeScale(scaleRatio_);
+#endif
         timeLabels_[i]->SetFont(name, size);
     }
     UpdateClock(false);
@@ -235,6 +244,14 @@ void UIDigitalClock::SetVertical()
         timeLabels_[i]->SetPosition(0, y);
         y += fontHeight;
     }
+}
+
+bool UIDigitalClock::SetFontSizeScale(float ratio)
+{
+#if defined(CONFIG_SCALE_FONT_SIZE) && (CONFIG_SCALE_FONT_SIZE == 1)
+    scaleRatio_= ratio;
+#endif
+    return true;
 }
 
 UIDigitalClock::~UIDigitalClock()
