@@ -96,10 +96,9 @@ struct LetterPathDataInfo {
     Rect fontRect;
     const ColorType color;
     const OpacityType opa;
-    const int16_t fontStrokeWidth;
-    const ColorType fontStrokeColor;
     float x;
     float y;
+    const Style& style;
 };
 
 enum BufferInfoUsage { BUFFER_FB_SURFACE, BUFFER_MAP_SURFACE, BUFFER_SNAPSHOT_SURFACE };
