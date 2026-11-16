@@ -100,12 +100,11 @@ struct LabelLetterInfo {
     TextStyle textStyle;
 #endif
     bool baseLine;
-    int16_t letterSpace_;
-    int16_t lineSpace_;
     bool havebackgroundColor;
     ColorType& backgroundColor;
     bool haveLineBackgroundColor;
     ColorType& lineBackgroundColor;
+    const Style& style;
 };
 
 struct TransformInitState {
