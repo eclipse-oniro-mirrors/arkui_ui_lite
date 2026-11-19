@@ -83,12 +83,11 @@ uint16_t DrawLabel::DrawTextOneLine(BufferInfo& gfxDstBuffer, const LabelLineInf
                                    textStyle,
 #endif
                                    labelLine.baseLine,
-                                   labelLine.style.letterSpace_,
-                                   labelLine.style.lineSpace_,
                                    havebackgroundColor,
                                    backgroundColor,
                                    haveLineBackgroundColor,
-                                   lineBackgroundColor
+                                   lineBackgroundColor,
+                                   labelLine.style
                                    };
 #if defined(ENABLE_TEXT_STYLE) && ENABLE_TEXT_STYLE
         glyphNode.textStyle = letterInfo.textStyle;
